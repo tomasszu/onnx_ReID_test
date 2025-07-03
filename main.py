@@ -40,6 +40,28 @@ def run_inference(session, inputs):
     norms = np.linalg.norm(feats, axis=1, keepdims=True) + 1e-12
     return feats / norms
 
+# Read tegrastats once to get GPU memory usage on Jetson devices
+# This function reads the output of the tegrastats command
+# and extracts the used GPU memory.
+def read_tegrastats_once():
+    try:
+        #Using Popen + .readline() ensures we wait for first output, then terminate immediately.
+        proc = subprocess.Popen(
+            ["tegrastats"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        # Read one line from the output and kill the process
+        output = proc.stdout.readline().decode()
+        proc.terminate()
+        match = re.search(r'RAM (\d+)/\d+MB', output)
+        if match:
+            return f"{int(match.group(1))} MB (Jetson tegrastats)"
+        return "N/A"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+
 def print_mem_usage(label="MEM"):
     # CPU RAM usage for current Python process
     cpu_mem = psutil.Process(os.getpid()).memory_info().rss / (1024 ** 2)
@@ -48,14 +70,7 @@ def print_mem_usage(label="MEM"):
 
     # Check for Jetson tegrastats
     if shutil.which("tegrastats"):
-        try:
-            output = subprocess.check_output(['tegrastats', '--interval', '100', '--count', '1'], stderr=subprocess.DEVNULL)
-            line = output.decode().strip().split('\n')[0]
-            match = re.search(r'RAM (\d+)/\d+MB', line)
-            if match:
-                gpu_mem = f"{int(match.group(1))} MB (Jetson)"
-        except Exception as e:
-            gpu_mem = "Error"
+        gpu_mem = read_tegrastats_once()
     
     # Otherwise try nvidia-smi (workstation with discrete GPU)
     elif shutil.which("nvidia-smi"):
@@ -67,6 +82,16 @@ def print_mem_usage(label="MEM"):
             gpu_mem_raw = output.decode().strip().split('\n')
             gpu_mem = f"{gpu_mem_raw[0]} MB (CUDA GPU)"
         except Exception as e:
+            gpu_mem = "Error"
+    # Jetson fallback: read from mem_info if available
+    elif os.path.exists("/proc/driver/nvidia/gpus/0/mem_info"):
+        try:
+            with open("/proc/driver/nvidia/gpus/0/mem_info") as f:
+                lines = f.readlines()
+            used_line = [line for line in lines if "Used" in line][0]
+            used_kb = int(re.findall(r'\d+', used_line)[0])
+            gpu_mem = f"{used_kb // 1024} MB (Jetson /proc)"
+        except Exception:
             gpu_mem = "Error"
 
     print(f"[{label}] CPU RAM: {cpu_mem:.2f} MB | GPU RAM: {gpu_mem}")
