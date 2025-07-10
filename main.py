@@ -104,7 +104,13 @@ def main():
 
     print_mem_usage("Before model load")
     providers = ['CUDAExecutionProvider'] if use_cuda else ['CPUExecutionProvider']
-    session = ort.InferenceSession(model_path, providers=providers)
+
+    #turn off thread affinity warnings on Jetson devices
+    sess_options = ort.SessionOptions()
+    sess_options.intra_op_num_threads = 1  # Disable thread pinning
+
+    session = ort.InferenceSession(model_path, sess_options, providers=providers)
+
     print_mem_usage("After model load")
 
     image_paths = sorted(glob.glob(os.path.join(image_folder, "*.jpg")) +

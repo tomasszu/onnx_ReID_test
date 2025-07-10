@@ -1,0 +1,35 @@
+FROM --platform=linux/arm64 nvcr.io/nvidia/l4t-cuda:12.2.12-devel
+
+# Use the official NVIDIA L4T Base image as a base
+# This image is optimized for Jetson devices and provides a minimal environment
+
+# Set environment variables
+# These variables help in configuring the environment for non-interactive installations
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Install Python
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip python3-opencv wget && \
+    rm -rf /var/lib/apt/lists/*
+
+
+RUN wget https://nvidia.box.com/shared/static/6l0u97rj80ifwkk8rqbzj1try89fk26z.whl -O onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl
+RUN python3 -m pip install onnxruntime_gpu-1.19.0-cp310-cp310-linux_aarch64.whl
+
+
+
+# Copy the requirements file into the container
+# This file contains the Python package dependencies for the application
+COPY requirements.txt .
+RUN python3 -m pip install --upgrade pip && \
+    python3 -m pip install -r requirements.txt
+
+
+COPY . /app
+
+WORKDIR /app
+
+CMD ["python3", "main.py"]
