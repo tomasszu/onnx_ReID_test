@@ -8,6 +8,8 @@ import onnxruntime as ort
 import shutil
 import subprocess
 import re
+import gc
+
 
 
 # ImageNet normalization values
@@ -135,6 +137,13 @@ def main():
     print(f"Total inference time: {total_time:.2f}s | Avg per image: {total_time / total_vectors:.4f}s")
     print(f"Average per image: {total_time / total_vectors:.4f}s | {(total_time / total_vectors) * 1000:.2f} ms")
     print_mem_usage("After inference")
+
+    # Explicit cleanup to avoid free() crash (nav veel izmeeginaats)
+    del session
+    gc.collect()
+    print("Memory cleanup done")
+    print_mem_usage("After cleanup")
+
 
 if __name__ == "__main__":
     main()
