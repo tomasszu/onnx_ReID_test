@@ -4,12 +4,11 @@ import glob
 import cv2
 import numpy as np
 import psutil
+import onnxruntime as ort
 import shutil
 import subprocess
 import re
 import gc
-
-from tensorrt_model import TensorRTModel
 
 
 
@@ -36,6 +35,12 @@ def yield_image_batches(image_paths, batch_size):
             batch = []
     if batch:
         yield np.stack(batch), batch
+
+def run_inference(session, inputs):
+    ort_inputs = {session.get_inputs()[0].name: inputs}
+    feats = session.run(None, ort_inputs)[0]
+    norms = np.linalg.norm(feats, axis=1, keepdims=True) + 1e-12
+    return feats / norms
 
 # Read tegrastats once to get GPU memory usage on Jetson devices
 # This function reads the output of the tegrastats command
@@ -94,13 +99,20 @@ def print_mem_usage(label="MEM"):
     print(f"[{label}] CPU RAM: {cpu_mem:.2f} MB | GPU RAM: {gpu_mem}")
 
 def main():
-    model_path = "model/net_39_opt_docker_built.engine"
+    model_path = "model/net_39_opt.onnx"
     image_folder = "gallery_images"
     batch_size = 1  # simulate streaming
+    use_cuda = True
 
     print_mem_usage("Before model load")
+    providers = ['CUDAExecutionProvider'] if use_cuda else ['CPUExecutionProvider']
 
-    model = TensorRTModel(model_path)
+    #turn off thread affinity warnings on Jetson devices
+    sess_options = ort.SessionOptions()
+    sess_options.intra_op_num_threads = 1  # Disable thread pinning
+
+    session = ort.InferenceSession(model_path, sess_options, providers=providers)
+
     print_mem_usage("After model load")
 
     image_paths = sorted(glob.glob(os.path.join(image_folder, "*.jpg")) +
@@ -114,7 +126,7 @@ def main():
     for batch_input_np, _ in yield_image_batches(image_paths, batch_size):
         batch_input_np = np.ascontiguousarray(batch_input_np)
         start = time.time()
-        feats = model.infer(batch_input_np)
+        feats = run_inference(session, batch_input_np)
         end = time.time()
 
         total_time += (end - start)
@@ -127,6 +139,7 @@ def main():
     print_mem_usage("After inference")
 
     # Explicit cleanup to avoid free() crash (nav veel izmeeginaats)
+    del session
     gc.collect()
     print("Memory cleanup done")
     print_mem_usage("After cleanup")
