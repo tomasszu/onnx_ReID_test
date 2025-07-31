@@ -71,5 +71,5 @@ def infer(engine_path, input_data):
 input_shape = (1, 3, 224, 224)  # change this to match your engine
 np.random.seed(42)
 dummy_input = np.random.rand(*input_shape).astype(np.float32)
-result = infer("model/net_39_opt_jetson_built.engine", dummy_input)
+result = infer("model/net_39_opt_docker_built.engine", dummy_input)
 print("Inference output:", result)
