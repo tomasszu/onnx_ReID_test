@@ -5,7 +5,7 @@
 # coloredlogs
 # flatbuffers
 # humanfriendly
-mpmath
+#mpmath
 #numpy==1.26.4
 numpy<2
 #onnxruntime-gpu==1.18.0

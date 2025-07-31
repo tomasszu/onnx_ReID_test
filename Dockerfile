@@ -3,17 +3,22 @@ FROM nvcr.io/nvidia/l4t-tensorrt:r10.3.0-devel
 # Nano nav iekļauts (apt update && apt install nano -y)
 
 #vajag cv2
-
-WORKDIR /app
-
 # pip install pycuda, psutil
 
-# Optional: install ONNX Runtime (GPU support via TensorRT)
-RUN pip install --no-cache-dir onnxruntime-gpu==1.17.1 numpy opencv-python
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Add your model + inference script
-COPY model_fp16.engine .
-COPY reid_infer.py .
+
+# Install Python packages
+RUN apt-get update && apt-get install -y python3-opencv
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy your code
+COPY . /app/
+WORKDIR /app/
 
 # Run inference
-CMD ["python3", "reid_infer.py"]
+CMD ["python", "main.py"]

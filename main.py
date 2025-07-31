@@ -7,7 +7,6 @@ import psutil
 import shutil
 import subprocess
 import re
-import gc
 
 from tensorrt_model import TensorRTModel
 
@@ -126,10 +125,6 @@ def main():
     print(f"Average per image: {total_time / total_vectors:.4f}s | {(total_time / total_vectors) * 1000:.2f} ms")
     print_mem_usage("After inference")
 
-    # Explicit cleanup to avoid free() crash (nav veel izmeeginaats)
-    gc.collect()
-    print("Memory cleanup done")
-    print_mem_usage("After cleanup")
 
 
 if __name__ == "__main__":

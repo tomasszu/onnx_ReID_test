@@ -26,3 +26,6 @@
 **/values.dev.yaml
 LICENSE
 README.md
+onnx_env/
+model/
+!model/net_39_opt_docker_built.engine
