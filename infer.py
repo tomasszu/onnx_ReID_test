@@ -21,23 +21,33 @@ def infer(engine_path, input_data):
 
         # Allocate host and device buffers
         tensor_names = [engine.get_tensor_name(i) for i in range(engine.num_io_tensors)]
+        print(f"Tensor names: {tensor_names}")
+        print(f"Engine has {len(tensor_names)} tensors")
+        print("-----------------------------------------------------------------------")
         for tensor in tensor_names:
+            print(f"Tensor {tensor} mode: {engine.get_tensor_mode(tensor)}")
             size = trt.volume(context.get_tensor_shape(tensor))
             dtype = trt.nptype(engine.get_tensor_dtype(tensor))
+            print(f"Tensor {tensor} shape: {context.get_tensor_shape(tensor)} | dtype: {dtype}")
 
             if engine.get_tensor_mode(tensor) == trt.TensorIOMode.INPUT:
                 context.set_input_shape(tensor, input_data.shape)
                 input_buffer = np.ascontiguousarray(input_data)
                 input_memory = cuda.mem_alloc(input_buffer.nbytes)
                 context.set_tensor_address(tensor, int(input_memory))
+                print(f"Context for this tensor {context}")
                 print(f"Input tensor {tensor} allocated with shape {input_data.shape} and dtype {input_buffer.dtype}")
             else:
                 output_buffer = cuda.pagelocked_empty(size, dtype)
                 output_memory = cuda.mem_alloc(output_buffer.nbytes)
                 context.set_tensor_address(tensor, int(output_memory))
+                print(f"Context for this tensor {context}")
+                print(f"Output tensor {tensor} output memory {output_memory} and output buffer {output_buffer}")
                 print(f"Output tensor {tensor} allocated with shape {context.get_tensor_shape(tensor)} and dtype {output_buffer.dtype}")
 
         stream = cuda.Stream()
+
+        print(f"Starting inference with stream {stream}")
 
         # Transfer input data to the GPU.
         cuda.memcpy_htod_async(input_memory, input_buffer, stream)
@@ -61,5 +71,5 @@ def infer(engine_path, input_data):
 input_shape = (1, 3, 224, 224)  # change this to match your engine
 np.random.seed(42)
 dummy_input = np.random.rand(*input_shape).astype(np.float32)
-result = infer("net_39_opt_docker_built.engine", dummy_input)
+result = infer("model/net_39_opt_jetson_built.engine", dummy_input)
 print("Inference output:", result)
