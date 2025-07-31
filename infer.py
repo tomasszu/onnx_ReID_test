@@ -19,36 +19,27 @@ def infer(engine_path, input_data):
     engine = load_engine(engine_path)
     with engine.create_execution_context() as context:
 
+        # Allocate input memory
         input_tensor_name = 'input'  # Assuming the input tensor is named 'input'
-        print(f"Tensor input mode: {engine.get_tensor_mode(input_tensor_name)}")
-        in_size = trt.volume(context.get_tensor_shape(input_tensor_name))
-        in_dtype = trt.nptype(engine.get_tensor_dtype(input_tensor_name))
-        print(f"Tensor input shape: {context.get_tensor_shape(input_tensor_name)} | dtype: {in_dtype}")
-
-        #if engine.get_tensor_mode(tensor) == trt.TensorIOMode.INPUT:
         context.set_input_shape(input_tensor_name, input_data.shape)
+
         input_buffer = np.ascontiguousarray(input_data)
         input_memory = cuda.mem_alloc(input_buffer.nbytes)
+
         context.set_tensor_address(input_tensor_name, int(input_memory))
-        print(f"Context for this tensor {context}")
-        print(f"Input tensor input allocated with shape {input_data.shape} and dtype {input_buffer.dtype}")
         
         # Allocate output memory
         output_tensor_name = 'output'  # Assuming the output tensor is named 'output'
-        print(f"Tensor output mode: {engine.get_tensor_mode(output_tensor_name)}")
+
         out_size = trt.volume(context.get_tensor_shape(output_tensor_name))
         out_dtype = trt.nptype(engine.get_tensor_dtype(output_tensor_name))
-        print(f"Tensor output shape: {context.get_tensor_shape(output_tensor_name)} | dtype: {out_dtype}")
+
         output_buffer = cuda.pagelocked_empty(out_size, out_dtype)
         output_memory = cuda.mem_alloc(output_buffer.nbytes)
+
         context.set_tensor_address(output_tensor_name, int(output_memory))
-        print(f"Context for this tensor {context}")
-        print(f"Output tensor {output_tensor_name} output memory {output_memory} and output buffer {output_buffer}")
-        print(f"Output tensor {output_tensor_name} allocated with shape {context.get_tensor_shape(output_tensor_name)} and dtype {output_buffer.dtype}")
 
         stream = cuda.Stream()
-
-        print(f"Starting inference with stream {stream}")
 
         # Transfer input data to the GPU.
         cuda.memcpy_htod_async(input_memory, input_buffer, stream)
